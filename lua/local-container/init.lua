@@ -112,7 +112,6 @@ local function start_remote_neovim(container_name)
 	return false
 end
 
-
 function M.connect_container()
 	select_container(
 		function(name)

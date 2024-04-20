@@ -18,6 +18,14 @@ lazy.nvim
 },
 ```
 
+```bash
+npm install -g @devcontainers/cli
+
+sudo apt-get install -y socat
+```
+
+
+
 
 ```lua
 lua require('local-container').connect_container()
