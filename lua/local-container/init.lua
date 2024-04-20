@@ -1,27 +1,16 @@
 local M = {}
 
+local settings = require('local-container.settings')
 local utils = require('local-container.utils')
 local dc = require('local-container.docker')
 
-local config = {
-	ssh = {
-		container_ssh_sock = '/tmp/local_container_ssh_auth.sock',
-		relay_port = 60000,
-	},
-	neovim = {
-		remote_path = '/opt/nvim/squashfs-root/usr/bin/nvim',
-		remote_port = 8888,
-		local_port = 8888,
-	},
-	devcontainer = {
-		path = 'devcontainer',
-	},
-}
-
 function M.setup(opts)
+	settings._update_setting(opts)
+	settings._define_command()
 end
 
 local function forward_ssh_sock(container_name)
+	local config = settings.config
 	local container_ssh_sock = config.ssh.container_ssh_sock
 	local relay_port = config.ssh.relay_port
 	local gateway, err = dc.fetch_container_gateway(container_name)
@@ -51,6 +40,7 @@ local function forward_ssh_sock(container_name)
 end
 
 local function start_remote_neovim(container_name)
+	local config = require('local-container.settings').config
 	local nvim_cmd = 'docker exec ' ..
 		container_name ..
 		' bash -c "SSH_AUTH_SOCK=' ..
@@ -68,14 +58,7 @@ local function start_remote_neovim(container_name)
 		return err
 	end
 
-	local socat_cmd = 'socat ' ..
-		'tcp-listen:' .. config.neovim.local_port .. ',fork ' ..
-		'tcp-connect:' .. container_ip_address .. ':' .. config.neovim.remote_port .. ' &'
-	_, err = utils.execute_cmd(socat_cmd, {})
-	if err then
-		return err
-	end
-	local neovim_cmd = 'nvim --remote-ui --server localhost:' .. config.neovim.local_port
+	local neovim_cmd = 'nvim --remote-ui --server ' .. container_ip_address .. ':' .. config.neovim.remote_port
 	require('osc52').copy(neovim_cmd)
 	print(neovim_cmd)
 
