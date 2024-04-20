@@ -9,6 +9,53 @@ function M.setup(opts)
 	settings._define_command()
 end
 
+local function select_container(callback)
+	local names, err = dc.list_container_names()
+	if err then
+		return err
+	end
+	if names[1] == '' then
+		print('running container is not found.')
+		return
+	end
+	vim.ui.select(
+		names,
+		{ prompt = 'select container:' },
+		function(name)
+			callback(name)
+		end
+	)
+end
+
+function M.install_neovim()
+	select_container(
+		function(container_name)
+			local _, err = utils.execute_cmd('docker exec -u root ' ..
+				container_name ..
+				' /bin/bash -c "apt-get update && apt-get install -y curl && $(curl -fsSL https://raw.githubusercontent.com/goropikari/devcontainer-feature/main/src/neovim/install.sh)"',
+				{}
+			)
+			if err then
+				return err
+			end
+		end
+	)
+end
+
+function M.install_socat()
+	select_container(function(container_name)
+		local _, err = utils.execute_cmd(
+			'docker exec -u root ' ..
+			container_name ..
+			' /bin/bash -c "apt-get update && apt-get install -y curl && $(curl -fsSL https://raw.githubusercontent.com/goropikari/devcontainer-feature/main/src/socat/install.sh)"',
+			{}
+		)
+		if err then
+			return err
+		end
+	end)
+end
+
 local function forward_ssh_sock(container_name)
 	local config = settings.config
 	local container_ssh_sock = config.ssh.container_ssh_sock
@@ -65,23 +112,6 @@ local function start_remote_neovim(container_name)
 	return false
 end
 
-local function select_container(callback)
-	local names, err = dc.list_container_names()
-	if err then
-		return err
-	end
-	if names[1] == '' then
-		print('running container is not found.')
-		return
-	end
-	vim.ui.select(
-		names,
-		{ prompt = 'select container:' },
-		function(name)
-			callback(name)
-		end
-	)
-end
 
 function M.connect_container()
 	select_container(
