@@ -2,6 +2,9 @@
 
 Inspired by vscode remote container.
 
+![demo](./docs/demo.gif)
+
+![infra](./docs/infrastructure.png)
 
 # Instalation
 
