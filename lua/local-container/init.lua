@@ -56,7 +56,7 @@ function M.install_socat()
 	end)
 end
 
-local function forward_ssh_sock(container_name)
+local function _forward_ssh_sock(container_name)
 	local config = settings.config
 	local container_ssh_sock = config.ssh.container_ssh_sock
 	local relay_port = config.ssh.relay_port
@@ -86,7 +86,18 @@ local function forward_ssh_sock(container_name)
 	end
 end
 
-local function start_remote_neovim(container_name)
+function M.forward_ssh_sock()
+	select_container(
+		function(container_name)
+			local err = _forward_ssh_sock(container_name)
+			if err then
+				return err
+			end
+		end
+	)
+end
+
+local function _start_remote_neovim(container_name)
 	local config = require('local-container.settings').config
 	local nvim_cmd = 'docker exec ' ..
 		container_name ..
@@ -115,10 +126,12 @@ end
 function M.connect_container()
 	select_container(
 		function(name)
-			forward_ssh_sock(name)
-			start_remote_neovim(name)
+			_forward_ssh_sock(name)
+			_start_remote_neovim(name)
 		end
 	)
 end
+
+M.show_config = settings.show_config
 
 return M

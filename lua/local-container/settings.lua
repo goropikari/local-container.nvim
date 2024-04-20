@@ -1,4 +1,6 @@
-local M = {}
+local M = {
+	config = nil,
+}
 
 local DEFAULT_CONFIG = {
 	ssh = {
@@ -14,12 +16,17 @@ local DEFAULT_CONFIG = {
 	},
 }
 
+
 function M._define_command()
-	vim.api.nvim_create_user_command(
-		"LCConnect",
-		require('local-container').connect_container,
-		{}
-	)
+	local commands = {
+		{ "LCConnect",    require('local-container').connect_container },
+		{ "LCShowConfig", M.show_config },
+		{ "LCForwardSSHSock", require('local-container').forward_ssh_sock },
+	}
+	for _, v in ipairs(commands) do
+		cmd, action = v[1], v[2]
+		vim.api.nvim_create_user_command(cmd, action, {})
+	end
 end
 
 function M._update_setting(opts)
@@ -30,6 +37,10 @@ function M._update_setting(opts)
 			M.config[key] = vim.fn.extend(value, v2)
 		end
 	end
+end
+
+function M.show_config()
+	print(vim.inspect(M.config))
 end
 
 return M
