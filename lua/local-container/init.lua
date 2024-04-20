@@ -1,59 +1,92 @@
 local M = {}
 
+local utils = require('local-container.utils')
+local dc = require('local-container.docker')
+
 local config = {
-	container_ssh_sock = '/tmp/local_container_ssh_auth.sock',
-	ssh_relay_port = 60000,
-	neovim_remote_port = 8888,
-	neovim_local_port = 8888,
+	ssh = {
+		container_ssh_sock = '/tmp/local_container_ssh_auth.sock',
+		relay_port = 60000,
+	},
+	neovim = {
+		remote_path = '/opt/nvim/squashfs-root/usr/bin/nvim',
+		remote_port = 8888,
+		local_port = 8888,
+	},
+	devcontainer = {
+		path = 'devcontainer',
+	},
 }
 
-function M.devcontainer(op, args)
-	local devcontainer_path = 'devcontainer'
-	-- vim.fn.system('devcontainer ' .. op .. ' ' .. args)
-	vim.fn.system(devcontainer_path .. ' ' .. op .. ' --workspace-folder . ' .. args)
-end
-
-local function list_container_names()
-	return vim.split(vim.fn.system('docker ps --format {{.Names}}'):sub(1, -2), "\n")
+function M.setup(opts)
 end
 
 local function forward_ssh_sock(container_name)
-	local container_ssh_sock = config.container_ssh_sock
-	local relay_port = config.ssh_relay_port
-	local gateway = vim.fn.system(
-		'docker inspect ' .. container_name .. " --format='{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}'"
-	):sub(1, -2)
+	local container_ssh_sock = config.ssh.container_ssh_sock
+	local relay_port = config.ssh.relay_port
+	local gateway, err = dc.fetch_container_gateway(container_name)
+	if err then
+		return err
+	end
+
 	-- make ssh_auth_sock in container
-	vim.fn.system(
+	_, err = utils.execute_cmd(
 		'docker exec ' ..
 		container_name ..
-		' socat unix-listen:' .. container_ssh_sock .. ',fork tcp-connect:' .. gateway .. ':' .. relay_port .. ' &'
+		' socat unix-listen:' .. container_ssh_sock .. ',fork tcp-connect:' .. gateway .. ':' .. relay_port .. ' &',
+		{}
 	)
+	if err then
+		return err
+	end
+
 	-- forward host ssh_auth_sock to container
-	vim.fn.system('socat ' .. os.getenv('SSH_AUTH_SOCK') .. ' tcp-listen:' .. relay_port .. ',fork &')
+	_, err = utils.execute_cmd(
+		'socat ' .. os.getenv('SSH_AUTH_SOCK') .. ' tcp-listen:' .. relay_port .. ',fork &',
+		{}
+	)
+	if err then
+		return err
+	end
 end
 
 local function start_remote_neovim(container_name)
-	vim.fn.system('docker exec ' ..
+	local nvim_cmd = 'docker exec ' ..
 		container_name ..
 		' bash -c "SSH_AUTH_SOCK=' ..
-		config.container_ssh_sock .. ' nvim --headless --listen 0.0.0.0:' .. config.neovim_remote_port .. ' &"')
+		config.ssh.container_ssh_sock ..
+		' ' .. config.neovim.remote_path .. ' --headless --listen 0.0.0.0:' .. config.neovim.remote_port .. ' &"'
 
-	local container_ip_address =
-		vim.fn.system(
-			'docker inspect ' .. container_name .. " --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'"
-		):sub(1, -2)
+	local _, err = utils.execute_cmd(nvim_cmd, { trim = true })
+	if err then
+		return err
+	end
+
+	local container_ip_address
+	container_ip_address, err = dc.fetch_container_ip_adderss(container_name)
+	if err then
+		return err
+	end
+
 	local socat_cmd = 'socat ' ..
-		'tcp-listen:' .. config.neovim_local_port .. ',fork ' ..
-		'tcp-connect:' .. container_ip_address .. ':' .. config.neovim_remote_port .. ' &'
-	vim.fn.system(socat_cmd)
-	local neovim_cmd = 'nvim --remote-ui --server localhost:' .. config.neovim_local_port
+		'tcp-listen:' .. config.neovim.local_port .. ',fork ' ..
+		'tcp-connect:' .. container_ip_address .. ':' .. config.neovim.remote_port .. ' &'
+	_, err = utils.execute_cmd(socat_cmd, {})
+	if err then
+		return err
+	end
+	local neovim_cmd = 'nvim --remote-ui --server localhost:' .. config.neovim.local_port
 	require('osc52').copy(neovim_cmd)
 	print(neovim_cmd)
+
+	return false
 end
 
-function M.connect_container()
-	local names = list_container_names()
+local function select_container(callback)
+	local names, err = dc.list_container_names()
+	if err then
+		return err
+	end
 	if names[1] == '' then
 		print('running container is not found.')
 		return
@@ -61,6 +94,14 @@ function M.connect_container()
 	vim.ui.select(
 		names,
 		{ prompt = 'select container:' },
+		function(name)
+			callback(name)
+		end
+	)
+end
+
+function M.connect_container()
+	select_container(
 		function(name)
 			forward_ssh_sock(name)
 			start_remote_neovim(name)
