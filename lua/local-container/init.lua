@@ -27,8 +27,9 @@ function M.install_neovim()
   select_container(function(container_name)
     local _, err = utils.execute_cmd(
       'docker exec -u root '
-        .. container_name
-        .. ' /bin/bash -c "apt-get update && apt-get install -y curl && $(curl -fsSL https://raw.githubusercontent.com/goropikari/devcontainer-feature/main/src/neovim/install.sh)"',
+      .. container_name
+      ..
+      ' /bin/bash -c "apt-get update && apt-get install -y curl && $(curl -fsSL https://raw.githubusercontent.com/goropikari/devcontainer-feature/main/src/neovim/install.sh)"',
       {}
     )
     if err then
@@ -41,8 +42,9 @@ function M.install_socat()
   select_container(function(container_name)
     local _, err = utils.execute_cmd(
       'docker exec -u root '
-        .. container_name
-        .. ' /bin/bash -c "apt-get update && apt-get install -y curl && $(curl -fsSL https://raw.githubusercontent.com/goropikari/devcontainer-feature/main/src/socat/install.sh)"',
+      .. container_name
+      ..
+      ' /bin/bash -c "apt-get update && apt-get install -y curl && $(curl -fsSL https://raw.githubusercontent.com/goropikari/devcontainer-feature/main/src/socat/install.sh)"',
       {}
     )
     if err then
@@ -62,7 +64,9 @@ local function _forward_ssh_sock(container_name)
 
   -- make ssh_auth_sock in container
   _, err = utils.execute_cmd(
-    'docker exec ' .. container_name .. ' socat unix-listen:' .. container_ssh_sock .. ',fork tcp-connect:' .. gateway .. ':' .. relay_port .. ' &',
+    'docker exec -u 1000 ' ..
+    container_name ..
+    ' socat unix-listen:' .. container_ssh_sock .. ',fork tcp-connect:' .. gateway .. ':' .. relay_port .. ' &',
     {}
   )
   if err then
@@ -87,15 +91,15 @@ end
 
 local function _start_remote_neovim(container_name)
   local config = require('local-container.settings').config
-  local nvim_cmd = 'docker exec '
-    .. container_name
-    .. ' bash -c "SSH_AUTH_SOCK='
-    .. config.ssh.container_ssh_sock
-    .. ' '
-    .. config.neovim.remote_path
-    .. ' --headless --listen 0.0.0.0:'
-    .. config.neovim.remote_port
-    .. ' &"'
+  local nvim_cmd = 'docker exec -u 1000 '
+      .. container_name
+      .. ' bash -c "SSH_AUTH_SOCK='
+      .. config.ssh.container_ssh_sock
+      .. ' '
+      .. config.neovim.remote_path
+      .. ' --headless --listen 0.0.0.0:'
+      .. config.neovim.remote_port
+      .. ' &"'
 
   local _, err = utils.execute_cmd(nvim_cmd, { trim = true })
   if err then
