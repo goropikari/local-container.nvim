@@ -53,7 +53,7 @@ function M.install_socat()
   end)
 end
 
-local function _forward_ssh_sock(container_name)
+function M.forward_ssh_sock_with_name(container_name)
   local config = settings.config
   local container_ssh_sock = config.ssh.container_ssh_sock
   local relay_port = config.ssh.relay_port
@@ -82,7 +82,7 @@ end
 
 function M.forward_ssh_sock()
   select_container(function(container_name)
-    local err = _forward_ssh_sock(container_name)
+    local err = M.forward_ssh_sock_with_name(container_name)
     if err then
       return err
     end
@@ -121,7 +121,7 @@ end
 
 function M.connect_container()
   select_container(function(name)
-    _forward_ssh_sock(name)
+    M.forward_ssh_sock_with_name(name)
     _start_remote_neovim(name)
   end)
 end
