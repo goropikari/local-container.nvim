@@ -18,8 +18,8 @@ local DEFAULT_CONFIG = {
 
 function M._define_command()
   local commands = {
-    { 'LCConnect', require('local-container').connect_container },
-    { 'LCShowConfig', M.show_config },
+    { 'LCConnect',        require('local-container').connect_container },
+    { 'LCShowConfig',     M.show_config },
     { 'LCForwardSSHSock', require('local-container').forward_ssh_sock },
   }
   for _, v in ipairs(commands) do
