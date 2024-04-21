@@ -1,8 +1,8 @@
 local M = {}
 
+local dc = require 'local-container.docker'
 local settings = require 'local-container.settings'
 local utils = require 'local-container.utils'
-local dc = require 'local-container.docker'
 
 function M.setup(opts)
   settings._update_setting(opts)

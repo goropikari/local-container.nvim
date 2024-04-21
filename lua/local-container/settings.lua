@@ -23,7 +23,7 @@ function M._define_command()
     { 'LCForwardSSHSock', require('local-container').forward_ssh_sock },
   }
   for _, v in ipairs(commands) do
-    cmd, action = v[1], v[2]
+    local cmd, action = v[1], v[2]
     vim.api.nvim_create_user_command(cmd, action, {})
   end
 end
